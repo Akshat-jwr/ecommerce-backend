@@ -22,7 +22,8 @@ const orderItemSchema = new mongoose.Schema({
     customizations: {
         engravingText: String,
         imageUrl: String
-    }
+    },
+    
 });
 
 const shippingAddressSchema = new mongoose.Schema({
@@ -81,8 +82,26 @@ const orderSchema = new mongoose.Schema({
         trackingNumber: String,
         url: String
     },
-    notes: String
+    notes: String,
+    attachments: {
+        zipFilePath: String,
+        uploadedAt: Date
+    }
 }, { timestamps: true });
+
+orderSchema.pre('save', async function(next) {
+    // If order status has changed to Delivered, delete the attachments
+    if (this.isModified('status') && this.status === 'Delivered' && this.attachments?.zipFilePath) {
+        try {
+            const { deleteOrderFiles } = await import('../utils/fileUpload.js');
+            await deleteOrderFiles(this._id);
+            this.attachments = undefined; // Remove reference to deleted files
+        } catch (error) {
+            console.error('Error deleting order files:', error);
+        }
+    }
+    next();
+});
 
 // Method to calculate order total
 orderSchema.methods.calculateTotal = function() {
