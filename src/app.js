@@ -1,18 +1,43 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { errorMiddleware } from "./middlewares/error.middleware.js";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// Create __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Global middlewares
 app.use(cors({
     origin: process.env.CORS_ORIGIN,
     credentials: true,
-}))
+}));
 
-app.use(express.json({limit: "16kb"}))
-app.use(express.urlencoded({extended:true, limit: "16kb"}))
-app.use(express.static("public"))
-app.use(cookieParser())
+app.use(express.json({ limit: "16kb" }));
+app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, "../public")));
+app.use(cookieParser());
 
-export {app}
+// Routes will be mounted here
+// app.use("/api/v1/users", userRoutes);
+// app.use("/api/v1/products", productRoutes);
+// ...
+
+// 404 handler
+app.use("*", (req, res) => {
+    res.status(404).json({
+        success: false,
+        message: `Route ${req.originalUrl} not found`
+    });
+});
+
+// Error handling middleware
+app.use(errorMiddleware);
+
+export { app };

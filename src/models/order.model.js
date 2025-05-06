@@ -22,8 +22,7 @@ const orderItemSchema = new mongoose.Schema({
     customizations: {
         engravingText: String,
         imageUrl: String
-    },
-    
+    }
 });
 
 const shippingAddressSchema = new mongoose.Schema({
@@ -74,7 +73,7 @@ const orderSchema = new mongoose.Schema({
     },
     paymentMethod: {
         type: String,
-        enum: ["COD", "Credit Card", "Debit Card", "UPI"],
+        enum: ["COD", "Credit Card", "Debit Card", "UPI", "PayPal"],
         required: true
     },
     trackingInfo: {
@@ -89,15 +88,20 @@ const orderSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
+// Pre-save hook to delete attachments when order is delivered
 orderSchema.pre('save', async function(next) {
-    // If order status has changed to Delivered, delete the attachments
-    if (this.isModified('status') && this.status === 'Delivered' && this.attachments?.zipFilePath) {
+    // If order status has changed to Delivered or Cancelled, delete the attachments
+    if (
+        this.isModified('status') && 
+        (this.status === 'Delivered' || this.status === 'Cancelled') && 
+        this.attachments?.zipFilePath
+    ) {
         try {
-            const { deleteOrderFiles } = await import('../utils/fileUpload.js');
-            await deleteOrderFiles(this._id);
+            const { deleteOrderAttachments } = await import('../utils/fileUpload.js');
+            await deleteOrderAttachments(this._id.toString());
             this.attachments = undefined; // Remove reference to deleted files
         } catch (error) {
-            console.error('Error deleting order files:', error);
+            console.error('Error deleting order attachments:', error);
         }
     }
     next();
