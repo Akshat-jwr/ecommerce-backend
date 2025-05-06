@@ -68,7 +68,6 @@ export const ADMIN_TARGETS = {
  * Payment methods
  */
 export const PAYMENT_METHODS = {
-    COD: "COD",
     CREDIT_CARD: "Credit Card",
     DEBIT_CARD: "Debit Card",
     UPI: "UPI",
