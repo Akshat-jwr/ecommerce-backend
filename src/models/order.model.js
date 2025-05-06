@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { PAYMENT_METHODS, ORDER_STATUS, PAYMENT_STATUS } from "../constants/index.js";
 
 const orderItemSchema = new mongoose.Schema({
     productId: {
@@ -64,17 +65,17 @@ const orderSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ["Placed", "Processing", "Shipped", "Delivered", "Cancelled"],
-        default: "Placed"
+        enum: Object.values(ORDER_STATUS),
+        default: ORDER_STATUS.PLACED
     },
     paymentStatus: {
         type: String,
-        enum: ["Pending", "Paid", "Failed", "Refunded"],
-        default: "Pending"
+        enum: Object.values(PAYMENT_STATUS),
+        default: PAYMENT_STATUS.PENDING
     },
     paymentMethod: {
         type: String,
-        enum: ["Credit Card", "Debit Card", "UPI", "PayPal"],
+        enum: Object.values(PAYMENT_METHODS),
         required: true
     },
     trackingInfo: {
@@ -94,7 +95,7 @@ orderSchema.pre('save', async function(next) {
     // If order status has changed to Delivered or Cancelled, delete the attachments
     if (
         this.isModified('status') && 
-        (this.status === 'Delivered' || this.status === 'Cancelled') && 
+        (this.status === ORDER_STATUS.DELIVERED || this.status === ORDER_STATUS.CANCELLED) && 
         this.attachments?.zipFilePath
     ) {
         try {
@@ -118,11 +119,11 @@ orderSchema.methods.calculateTotal = function() {
 // Method to update order status
 orderSchema.methods.updateStatus = function(newStatus) {
     const validStatusTransitions = {
-        "Placed": ["Processing", "Cancelled"],
-        "Processing": ["Shipped", "Cancelled"],
-        "Shipped": ["Delivered", "Cancelled"],
-        "Delivered": [],
-        "Cancelled": []
+        [ORDER_STATUS.PLACED]: [ORDER_STATUS.PROCESSING, ORDER_STATUS.CANCELLED],
+        [ORDER_STATUS.PROCESSING]: [ORDER_STATUS.SHIPPED, ORDER_STATUS.CANCELLED],
+        [ORDER_STATUS.SHIPPED]: [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED],
+        [ORDER_STATUS.DELIVERED]: [],
+        [ORDER_STATUS.CANCELLED]: []
     };
 
     if (validStatusTransitions[this.status].includes(newStatus)) {

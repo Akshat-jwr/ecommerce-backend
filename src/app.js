@@ -24,6 +24,15 @@ app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static(path.join(__dirname, "../public")));
 app.use(cookieParser());
 
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: "API is running",
+        timestamp: new Date()
+    });
+});
+
 // Routes will be mounted here
 // app.use("/api/v1/users", userRoutes);
 // app.use("/api/v1/products", productRoutes);

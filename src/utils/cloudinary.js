@@ -1,6 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
-import { PAYMENT_METHODS, ORDER_STATUS } from "../constants/index.js";
 
 // Configuration
 cloudinary.config({ 

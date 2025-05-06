@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { PRODUCT_STATUS } from "../constants/index.js";
 
 const imageSchema = new mongoose.Schema({
     url: {
@@ -45,8 +46,8 @@ const productSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ["Available", "OutOfStock", "Discontinued", "ComingSoon"],
-        default: "Available"
+        enum: Object.values(PRODUCT_STATUS),
+        default: PRODUCT_STATUS.AVAILABLE
     },
     isAvailable: {
         type: Boolean,
@@ -99,7 +100,7 @@ productSchema.index({ name: 'text', description: 'text', tags: 'text' });
 
 // Method to check if product is available for purchase
 productSchema.methods.isInStock = function() {
-    return this.status === "Available" && this.isAvailable;
+    return this.status === PRODUCT_STATUS.AVAILABLE && this.isAvailable;
 };
 
 // Helper method to get featured image
@@ -118,9 +119,29 @@ productSchema.methods.updateRating = function(newRating) {
 // Pre-save hook to update isAvailable based on status
 productSchema.pre('save', function(next) {
     if (this.isModified('status')) {
-        this.isAvailable = (this.status === "Available");
+        this.isAvailable = (this.status === PRODUCT_STATUS.AVAILABLE);
     }
     next();
+});
+
+// Middleware to clean up Cloudinary images when product is deleted
+productSchema.pre('deleteOne', { document: true }, async function(next) {
+    try {
+        if (this.images && this.images.length > 0) {
+            const { deleteFromCloudinary } = await import('../utils/cloudinary.js');
+            
+            // Delete all images from Cloudinary
+            const deletePromises = this.images.map(image => 
+                deleteFromCloudinary(image.publicId)
+            );
+            
+            await Promise.all(deletePromises);
+        }
+        next();
+    } catch (error) {
+        console.error("Error deleting product images from Cloudinary:", error);
+        next(error);
+    }
 });
 
 export const Product = mongoose.model("Product", productSchema); 
