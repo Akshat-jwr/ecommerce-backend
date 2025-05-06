@@ -11,10 +11,6 @@ const reviewSchema = new mongoose.Schema({
         ref: "User",
         required: true
     },
-    userName: {
-        type: String,
-        required: true
-    },
     rating: {
         type: Number,
         required: true,
@@ -33,20 +29,12 @@ const reviewSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    likes: {
-        type: Number,
-        default: 0
-    },
-    dislikes: {
-        type: Number,
-        default: 0
-    },
+
     replies: [{
         userId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User"
         },
-        userName: String,
         comment: String,
         createdAt: {
             type: Date,
@@ -61,10 +49,9 @@ reviewSchema.path('rating').validate(function(rating) {
 }, 'Rating must be between 1 and 5');
 
 // Method to add a reply
-reviewSchema.methods.addReply = function(userId, userName, comment) {
+reviewSchema.methods.addReply = function(userId, comment) {
     this.replies.push({
         userId,
-        userName,
         comment,
         createdAt: new Date()
     });

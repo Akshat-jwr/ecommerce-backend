@@ -86,6 +86,7 @@ const productSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+
     seo: {
         title: String,
         description: String,
@@ -120,26 +121,6 @@ productSchema.pre('save', function(next) {
         this.isAvailable = (this.status === "Available");
     }
     next();
-});
-
-// Middleware to clean up Cloudinary images when product is deleted
-productSchema.pre('deleteOne', { document: true }, async function(next) {
-    try {
-        if (this.images && this.images.length > 0) {
-            const { deleteFromCloudinary } = await import('../utils/cloudinary.js');
-            
-            // Delete all images from Cloudinary
-            const deletePromises = this.images.map(image => 
-                deleteFromCloudinary(image.publicId)
-            );
-            
-            await Promise.all(deletePromises);
-        }
-        next();
-    } catch (error) {
-        console.error("Error deleting product images from Cloudinary:", error);
-        next(error);
-    }
 });
 
 export const Product = mongoose.model("Product", productSchema); 

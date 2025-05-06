@@ -100,3 +100,4 @@ categorySchema.methods.getChildren = async function() {
 };
 
 export const Category = mongoose.model("Category", categorySchema); 
+

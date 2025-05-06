@@ -6,15 +6,12 @@ const orderItemSchema = new mongoose.Schema({
         ref: "Product",
         required: true
     },
-    name: {
-        type: String,
-        required: true
-    },
     quantity: {
         type: Number,
         required: true,
         min: 1
     },
+    //I've kept this price to adjust for discounts
     price: {
         type: Number,
         required: true
@@ -55,6 +52,10 @@ const orderSchema = new mongoose.Schema({
         ref: "User",
         required: true
     },
+    deliveryCharge: {
+        type: Number,
+        required: true
+    },
     items: [orderItemSchema],
     shippingAddress: shippingAddressSchema,
     totalAmount: {
@@ -73,7 +74,7 @@ const orderSchema = new mongoose.Schema({
     },
     paymentMethod: {
         type: String,
-        enum: ["COD", "Credit Card", "Debit Card", "UPI", "PayPal"],
+        enum: ["Credit Card", "Debit Card", "UPI", "PayPal"],
         required: true
     },
     trackingInfo: {
@@ -110,7 +111,7 @@ orderSchema.pre('save', async function(next) {
 // Method to calculate order total
 orderSchema.methods.calculateTotal = function() {
     return this.items.reduce((total, item) => {
-        return total + (item.price * item.quantity);
+        return total + (item.price * item.quantity) + this.deliveryCharge;
     }, 0);
 };
 

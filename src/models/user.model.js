@@ -44,10 +44,12 @@ const cartItemSchema = new mongoose.Schema({
         required: true,
         min: 1
     },
-    customizations: {
-        engravingText: String,
-        imageUrl: String
-    }
+    // customizations: {
+    //     engravingText: String,
+    //     imageUrl: String
+    // }
+
+    //I WANT TO KEEP CUSTOMIZATIONS AT CHECKOUT ONLY WHEN ORDER IS PLACED AND NOT IN THE USER'S CART
 });
 
 const userSchema = new mongoose.Schema({
@@ -63,6 +65,11 @@ const userSchema = new mongoose.Schema({
         lowercase: true,
         trim: true,
         match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address']
+    },
+    countryCode: {
+        type: String,
+        required: true,
+        default: "+91"
     },
     phone: {
         type: String,
@@ -102,6 +109,7 @@ const userSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
+
 // Pre-save hook to hash password
 userSchema.pre("save", async function(next) {
     if (this.isModified("password")) {
@@ -121,8 +129,7 @@ userSchema.methods.generateAccessToken = function() {
         {
             _id: this._id,
             email: this.email,
-            name: this.name,
-            role: this.role
+            name: this.name
         },
         process.env.ACCESS_TOKEN_SECRET,
         {

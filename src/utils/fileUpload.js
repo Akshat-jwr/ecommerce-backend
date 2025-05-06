@@ -26,7 +26,7 @@ export const createOrderAttachmentsZip = async (orderId) => {
     }
     
     // Get all files in directory
-    const files = fs.readdirSync(orderDir).filter(file => {
+    const files = await fs.readdirSync(orderDir).filter(file => {
         // Filter out the zip file itself if it exists
         return file !== `order-${orderId}-attachments.zip`;
     });
@@ -90,7 +90,7 @@ export const deleteOrderAttachments = async (orderId) => {
     
     if (fs.existsSync(orderDir)) {
         try {
-            fs.rmSync(orderDir, { recursive: true, force: true });
+            await fs.rmSync(orderDir, { recursive: true, force: true });
             return true;
         } catch (error) {
             console.error(`Error deleting order attachments for order ${orderId}:`, error);
