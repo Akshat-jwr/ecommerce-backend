@@ -1,36 +1,37 @@
-# Customized Gifts E-commerce Backend
+# E-Commerce Backend API
 
-A comprehensive backend API for a customized gifts e-commerce platform built with the MERN stack.
+A full-featured e-commerce backend API with authentication, product management, order processing, and more.
+
+## Live API
+
+The API is live at: [https://ecommerce-backend-pbeq.onrender.com](https://ecommerce-backend-pbeq.onrender.com)
+
+API Documentation: [https://ecommerce-backend-pbeq.onrender.com/api-docs](https://ecommerce-backend-pbeq.onrender.com/api-docs)
 
 ## Features
 
-- User authentication and profile management
-- Product catalog with customization options
-- Shopping cart and wishlist functionality
-- Order management system
-- Reviews and ratings
-- Coupon system
-- Admin panel for product, order, and user management
-- Activity logging for admin actions
+- User authentication (email/password and Google OAuth)
+- Email verification with OTP
+- Product management
+- Order processing
+- RESTful API design
+- Swagger API documentation
+
+## API Documentation
+
+Once running, the API documentation is available at:
+- Local: http://localhost:8000/api-docs
+- Production: https://ecommerce-backend-pbeq.onrender.com/api-docs
 
 ## Tech Stack
 
 - Node.js with Express
 - MongoDB with Mongoose
 - JWT authentication
-- Bcrypt for password hashing
-
-## Database Schema
-
-The database includes the following collections:
-
-- Users
-- Products
-- Categories
-- Orders
-- Reviews
-- Coupons
-- Admin Activity Logs
+- Email verification with OTP
+- Google OAuth integration
+- Swagger for API documentation
+- Deployed on Render
 
 ## Getting Started
 
@@ -52,9 +53,9 @@ cd ecommerce-backend
 npm install
 ```
 
-3. Create a `.env` file based on `.env.sample`:
+3. Create a `.env` file based on `.env.example`:
 ```bash
-cp .env.sample .env
+cp .env.example .env
 ```
 Then edit the `.env` file with your actual configuration values.
 
@@ -63,20 +64,19 @@ Then edit the `.env` file with your actual configuration values.
 npm run dev
 ```
 
-## API Endpoints
+## API Routes
 
-The API will include endpoints for:
+### Authentication
+- `POST /api/v1/auth/register` - Register a new user
+- `POST /api/v1/auth/verify-email` - Verify email with OTP
+- `POST /api/v1/auth/resend-otp` - Resend verification OTP
+- `POST /api/v1/auth/login` - Login with email/password
+- `POST /api/v1/auth/google` - Login/register with Google
+- `POST /api/v1/auth/refresh-token` - Refresh access token
+- `POST /api/v1/auth/logout` - Logout (requires authentication)
 
-- Authentication (register, login, refresh token)
-- User management
-- Product CRUD operations
-- Category management
-- Cart operations
-- Order processing
-- Payment integration
-- Reviews and ratings
-- Coupon management
-- Admin operations
+### Other API Routes
+- More routes will be added as the application grows
 
 ## License
 

@@ -25,8 +25,8 @@ const options = {
         description: 'Development server',
       },
       {
-        url: 'https://your-production-url.vercel.app',
-        description: 'Production server',
+        url: 'https://ecommerce-backend-pbeq.onrender.com',
+        description: 'Production server (Render)',
       },
     ],
     components: {
@@ -59,5 +59,10 @@ export const swaggerDocs = (app, port) => {
     res.send(specs);
   });
 
-  console.log(`📄 Swagger docs available at http://localhost:${port}/api-docs`);
+  // Different logging based on environment
+  if (process.env.NODE_ENV === 'production') {
+    console.log(`📄 Swagger docs available at /api-docs`);
+  } else {
+    console.log(`📄 Swagger docs available at http://localhost:${port}/api-docs`);
+  }
 }; 
