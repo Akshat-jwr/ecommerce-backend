@@ -5,6 +5,9 @@ import { errorMiddleware } from "./middlewares/error.middleware.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
+// Import routes
+import authRoutes from "./routes/auth.routes.js";
+
 // Create __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,7 +36,8 @@ app.get("/api/health", (req, res) => {
     });
 });
 
-// Routes will be mounted here
+// Mount routes
+app.use("/api/v1/auth", authRoutes);
 // app.use("/api/v1/users", userRoutes);
 // app.use("/api/v1/products", productRoutes);
 // ...

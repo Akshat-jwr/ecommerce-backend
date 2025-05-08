@@ -4,6 +4,7 @@ import { Order } from "./order.model.js";
 import { Review } from "./review.model.js";
 import { Category } from "./category.model.js";
 import { UserActivity } from "./userActivity.model.js";
+import { OTP } from "./otp.model.js";
 
 export {
     User,
@@ -11,5 +12,6 @@ export {
     Order,
     Review,
     Category,
-    UserActivity
+    UserActivity,
+    OTP
 }; 

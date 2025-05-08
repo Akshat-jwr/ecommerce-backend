@@ -68,7 +68,6 @@ const userSchema = new mongoose.Schema({
     },
     countryCode: {
         type: String,
-        required: true,
         default: "+91"
     },
     phone: {
@@ -77,7 +76,20 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: [true, 'Password is required'],
+        // Making password optional for Google authenticated users
+        required: function() {
+            return !this.googleId; // Password required only if no googleId
+        }
+    },
+    emailVerified: {
+        type: Boolean,
+        default: false
+    },
+    googleId: {
+        type: String
+    },
+    avatar: {
+        type: String
     },
     role: {
         type: String,
@@ -112,7 +124,7 @@ const userSchema = new mongoose.Schema({
 
 // Pre-save hook to hash password
 userSchema.pre("save", async function(next) {
-    if (this.isModified("password")) {
+    if (this.isModified("password") && this.password) {
         this.password = await bcrypt.hash(this.password, 10);
     }
     next();
@@ -120,6 +132,7 @@ userSchema.pre("save", async function(next) {
 
 // Method to compare password
 userSchema.methods.isPasswordCorrect = async function(password) {
+    if (!this.password) return false; // For Google auth users with no password
     return await bcrypt.compare(password, this.password);
 };
 
@@ -129,7 +142,8 @@ userSchema.methods.generateAccessToken = function() {
         {
             _id: this._id,
             email: this.email,
-            name: this.name
+            name: this.name,
+            role: this.role
         },
         process.env.ACCESS_TOKEN_SECRET,
         {
