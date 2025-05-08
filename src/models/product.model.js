@@ -16,87 +16,128 @@ const imageSchema = new mongoose.Schema({
     }
 }, { _id: false });
 
-const productSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    description: {
-        type: String,
-        required: true
-    },
-    price: {
-        type: Number,
-        required: true,
-        min: 0
-    },
-    images: {
-        type: [imageSchema],
-        default: []
-    },
-    category: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Category",
-        required: true
-    },
-    tags: {
-        type: [String],
-        default: []
-    },
-    status: {
-        type: String,
-        enum: Object.values(PRODUCT_STATUS),
-        default: PRODUCT_STATUS.AVAILABLE
-    },
-    isAvailable: {
-        type: Boolean,
-        default: true
-    },
-    customizationOptions: {
-        engraving: {
-            type: Boolean,
-            default: false
+const productSchema = new mongoose.Schema(
+    {
+        name: {
+            type: String,
+            required: [true, "Product name is required"],
+            trim: true,
+            index: true
         },
-        photoUpload: {
-            type: Boolean,
-            default: false
+        description: {
+            type: String,
+            required: [true, "Product description is required"],
+            trim: true
         },
-        colorOptions: {
+        price: {
+            type: Number,
+            required: [true, "Product price is required"],
+            min: [0, "Price cannot be negative"]
+        },
+        discountPercentage: {
+            type: Number,
+            default: 0,
+            min: [0, "Discount cannot be negative"],
+            max: [100, "Discount cannot exceed 100%"]
+        },
+        stock: {
+            type: Number,
+            required: [true, "Product stock is required"],
+            min: [0, "Stock cannot be negative"],
+            default: 0
+        },
+        category: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Category",
+            required: [true, "Product category is required"]
+        },
+        images: {
             type: [String],
             default: []
-        }
-    },
-    ratings: {
-        average: {
+        },
+        features: {
+            type: [String],
+            default: []
+        },
+        specifications: {
+            type: Object,
+            default: {}
+        },
+        customizationOptions: {
+            type: [{
+                name: String,
+                options: [String]
+            }],
+            default: []
+        },
+        averageRating: {
             type: Number,
             default: 0,
             min: 0,
             max: 5
         },
-        count: {
+        numReviews: {
             type: Number,
             default: 0
+        },
+        status: {
+            type: String,
+            enum: Object.values(PRODUCT_STATUS),
+            default: PRODUCT_STATUS.AVAILABLE
+        },
+        isAvailable: {
+            type: Boolean,
+            default: true
+        },
+        ratings: {
+            average: {
+                type: Number,
+                default: 0,
+                min: 0,
+                max: 5
+            },
+            count: {
+                type: Number,
+                default: 0
+            }
+        },
+        reviews: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Review"
+        }],
+        featured: {
+            type: Boolean,
+            default: false
+        },
+        seo: {
+            title: String,
+            description: String,
+            keywords: [String]
         }
     },
-    reviews: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Review"
-    }],
-    featured: {
-        type: Boolean,
-        default: false
-    },
+    { timestamps: true }
+);
 
-    seo: {
-        title: String,
-        description: String,
-        keywords: [String]
-    }
-}, { timestamps: true });
+// Add text index for search functionality
+productSchema.index(
+    { name: "text", description: "text" },
+    { weights: { name: 3, description: 1 } }
+);
 
-// Add index for better search performance
-productSchema.index({ name: 'text', description: 'text', tags: 'text' });
+// Virtual for calculating sale price
+productSchema.virtual("salePrice").get(function() {
+    if (!this.discountPercentage) return this.price;
+    return this.price * (1 - this.discountPercentage / 100);
+});
+
+// Method to check if product is in stock
+productSchema.methods.isInStock = function() {
+    return this.stock > 0;
+};
+
+// When converting to JSON or object, include virtuals
+productSchema.set("toJSON", { virtuals: true });
+productSchema.set("toObject", { virtuals: true });
 
 // Method to check if product is available for purchase
 productSchema.methods.isInStock = function() {

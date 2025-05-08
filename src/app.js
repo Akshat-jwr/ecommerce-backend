@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 
 // Import routes
 import authRoutes from "./routes/auth.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 
 // Import Swagger
 import { swaggerDocs } from "./utils/swagger.js";
@@ -55,6 +56,7 @@ app.get("/", (req, res) => {
 
 // Mount routes
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/admin", adminRoutes);
 // app.use("/api/v1/users", userRoutes);
 // app.use("/api/v1/products", productRoutes);
 // ...

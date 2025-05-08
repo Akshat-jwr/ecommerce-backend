@@ -1,76 +1,91 @@
 import mongoose from "mongoose";
 
-const categorySchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true,
-        trim: true,
-        unique: true
-    },
-    slug: {
-        type: String,
-        required: true,
-        unique: true,
-        lowercase: true
-    },
-    description: {
-        type: String,
-        default: ""
-    },
-    image: {
-        type: String,
-        default: ""
-    },
-    parent: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Category",
-        default: null
-    },
-    ancestors: [{
-        _id: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Category"
+const categorySchema = new mongoose.Schema(
+    {
+        name: {
+            type: String,
+            required: [true, "Category name is required"],
+            trim: true,
+            unique: true,
+            index: true
         },
-        name: String,
-        slug: String
-    }],
-    isActive: {
-        type: Boolean,
-        default: true
+        description: {
+            type: String,
+            trim: true
+        },
+        parentCategory: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Category",
+            default: null
+        },
+        slug: {
+            type: String,
+            lowercase: true,
+            unique: true
+        },
+        image: {
+            type: String
+        },
+        ancestors: [{
+            _id: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Category"
+            },
+            name: String,
+            slug: String
+        }],
+        isActive: {
+            type: Boolean,
+            default: true
+        },
+        displayOrder: {
+            type: Number,
+            default: 0
+        },
+        featuredProducts: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Product"
+        }],
+        metadata: {
+            seoTitle: String,
+            seoDescription: String,
+            seoKeywords: [String]
+        }
     },
-    displayOrder: {
-        type: Number,
-        default: 0
-    },
-    featuredProducts: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Product"
-    }],
-    metadata: {
-        seoTitle: String,
-        seoDescription: String,
-        seoKeywords: [String]
-    }
-}, { timestamps: true });
+    { timestamps: true }
+);
 
-// Create slug from name before saving
-categorySchema.pre('save', function(next) {
-    if (this.isModified('name')) {
-        this.slug = this.name.toLowerCase()
-            .replace(/[^\w\s-]/g, '') // Remove non-word chars
-            .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
-            .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+// Generate slug from name before saving
+categorySchema.pre("save", function(next) {
+    if (!this.isModified("name")) return next();
+    this.slug = this.name
+        .toLowerCase()
+        .replace(/[^a-zA-Z0-9]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+    next();
+});
+
+// Update slug when name is updated
+categorySchema.pre("findOneAndUpdate", async function(next) {
+    const update = this.getUpdate();
+    if (update.name) {
+        update.slug = update.name
+            .toLowerCase()
+            .replace(/[^a-zA-Z0-9]/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^-|-$/g, "");
     }
     next();
 });
 
 // Update ancestors array when parent changes
 categorySchema.pre('save', async function(next) {
-    if (this.isModified('parent')) {
+    if (this.isModified('parentCategory')) {
         this.ancestors = [];
-        if (this.parent) {
+        if (this.parentCategory) {
             try {
-                const parent = await mongoose.model('Category').findById(this.parent);
+                const parent = await mongoose.model('Category').findById(this.parentCategory);
                 if (parent) {
                     this.ancestors = [
                         ...parent.ancestors,
@@ -96,7 +111,7 @@ categorySchema.methods.getPath = function() {
 
 // Method to get all child categories
 categorySchema.methods.getChildren = async function() {
-    return await mongoose.model('Category').find({ parent: this._id });
+    return await mongoose.model('Category').find({ parentCategory: this._id });
 };
 
 export const Category = mongoose.model("Category", categorySchema); 
