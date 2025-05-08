@@ -19,7 +19,7 @@ const app = express();
 
 // Global middlewares
 app.use(cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: process.env.CORS_ORIGIN || '*',
     credentials: true,
 }));
 
@@ -40,6 +40,16 @@ app.get("/api/health", (req, res) => {
         success: true,
         message: "API is running",
         timestamp: new Date()
+    });
+});
+
+// Root endpoint - added for Render
+app.get("/", (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: "E-commerce API is running",
+        version: "1.0.0",
+        docs: "/api-docs"
     });
 });
 

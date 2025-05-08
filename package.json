@@ -1,12 +1,13 @@
 {
   "name": "ecommerce-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "E-commerce backend API with authentication, product management, and order processing",
+  "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "start": "node -r dotenv/config --experimental-json-modules ./src/index.js",
-    "dev": "nodemon -r dotenv/config --experimental-json-modules ./src/index.js"
+    "start": "node src/index.js",
+    "dev": "nodemon -r dotenv/config --experimental-json-modules ./src/index.js",
+    "build": "echo 'Build step completed'"
   },
   "repository": {
     "type": "git",
@@ -18,6 +19,9 @@
     "url": "https://github.com/Akshat-jwr/ecommerce-backend/issues"
   },
   "homepage": "https://github.com/Akshat-jwr/ecommerce-backend#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "dependencies": {
     "archiver": "^7.0.1",
     "bcrypt": "^5.1.1",
