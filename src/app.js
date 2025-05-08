@@ -8,6 +8,9 @@ import { fileURLToPath } from "url";
 // Import routes
 import authRoutes from "./routes/auth.routes.js";
 
+// Import Swagger
+import { swaggerDocs } from "./utils/swagger.js";
+
 // Create __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,6 +29,10 @@ app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, "../public")));
 app.use(cookieParser());
+
+// Initialize Swagger - IMPORTANT: Initialize before routes
+const PORT = process.env.PORT || 8000;
+swaggerDocs(app, PORT);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {

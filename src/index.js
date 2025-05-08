@@ -6,7 +6,7 @@ import DBConnect from "./db/index.js"
 import {app} from './app.js'
 import { validateAuthEnvVariables } from './utils/config.js';
 
-const port = process.env.PORT || 8001;
+const port = process.env.PORT || 8000;
 
 // Validate required environment variables
 try {
@@ -22,6 +22,7 @@ DBConnect()
     app.listen(port, ()=>{
         console.log(`✅ Server running at http://localhost:${port}`);
         console.log(`🛣️  API routes available at http://localhost:${port}/api/v1/`);
+        console.log(`📚 API documentation available at http://localhost:${port}/api-docs`);
     })
 })
 .catch((err) => {
