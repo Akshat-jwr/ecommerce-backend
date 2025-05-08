@@ -20,7 +20,7 @@
   },
   "homepage": "https://github.com/Akshat-jwr/ecommerce-backend#readme",
   "engines": {
-    "node": ">=16.0.0"
+    "node": "18.x"
   },
   "dependencies": {
     "archiver": "^7.0.1",
