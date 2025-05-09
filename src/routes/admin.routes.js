@@ -34,6 +34,18 @@ import {
     deleteUser
 } from "../controllers/admin/user.controller.js";
 
+// Import validation middleware
+import { 
+    productValidationRules, 
+    categoryValidationRules, 
+    orderStatusValidationRules,
+    paginationRules,
+    isValidObjectId,
+    validate 
+} from "../middlewares/validator.middleware.js";
+
+import { body } from "express-validator";
+
 const router = Router();
 
 // Protect all admin routes with authentication and admin role check
@@ -224,7 +236,7 @@ router.use(verifyJWT, verifyAdmin);
  *       default: user
  */
 
-// Product Routes
+// Product Routes with validation
 /**
  * @swagger
  * /api/v1/admin/products:
@@ -249,7 +261,7 @@ router.use(verifyJWT, verifyAdmin);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.post("/products", createProduct);
+router.post("/products", productValidationRules, validate, createProduct);
 
 /**
  * @swagger
@@ -303,7 +315,7 @@ router.post("/products", createProduct);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get("/products", getAllProducts);
+router.get("/products", paginationRules, validate, getAllProducts);
 
 /**
  * @swagger
@@ -332,7 +344,7 @@ router.get("/products", getAllProducts);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get("/products/:id", getProductById);
+router.get("/products/:id", isValidObjectId('id'), validate, getProductById);
 
 /**
  * @swagger
@@ -367,7 +379,7 @@ router.get("/products/:id", getProductById);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.put("/products/:id", updateProduct);
+router.put("/products/:id", [isValidObjectId('id'), ...productValidationRules], validate, updateProduct);
 
 /**
  * @swagger
@@ -396,9 +408,9 @@ router.put("/products/:id", updateProduct);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.delete("/products/:id", deleteProduct);
+router.delete("/products/:id", isValidObjectId('id'), validate, deleteProduct);
 
-// Category Routes
+// Category Routes with validation
 /**
  * @swagger
  * /api/v1/admin/categories:
@@ -425,7 +437,7 @@ router.delete("/products/:id", deleteProduct);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.post("/categories", createCategory);
+router.post("/categories", categoryValidationRules, validate, createCategory);
 
 /**
  * @swagger
@@ -483,7 +495,7 @@ router.get("/categories", getAllCategories);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get("/categories/:id", getCategoryById);
+router.get("/categories/:id", isValidObjectId('id'), validate, getCategoryById);
 
 /**
  * @swagger
@@ -520,7 +532,7 @@ router.get("/categories/:id", getCategoryById);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.put("/categories/:id", updateCategory);
+router.put("/categories/:id", [isValidObjectId('id'), ...categoryValidationRules], validate, updateCategory);
 
 /**
  * @swagger
@@ -549,9 +561,9 @@ router.put("/categories/:id", updateCategory);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.delete("/categories/:id", deleteCategory);
+router.delete("/categories/:id", isValidObjectId('id'), validate, deleteCategory);
 
-// Order Routes
+// Order Routes with validation
 /**
  * @swagger
  * /api/v1/admin/orders:
@@ -621,7 +633,7 @@ router.delete("/categories/:id", deleteCategory);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get("/orders", getAllOrders);
+router.get("/orders", paginationRules, validate, getAllOrders);
 
 /**
  * @swagger
@@ -650,7 +662,7 @@ router.get("/orders", getAllOrders);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get("/orders/:id", getOrderById);
+router.get("/orders/:id", isValidObjectId('id'), validate, getOrderById);
 
 /**
  * @swagger
@@ -694,7 +706,7 @@ router.get("/orders/:id", getOrderById);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.patch("/orders/:id/status", updateOrderStatus);
+router.patch("/orders/:id/status", [isValidObjectId('id'), ...orderStatusValidationRules], validate, updateOrderStatus);
 
 /**
  * @swagger
@@ -723,9 +735,9 @@ router.patch("/orders/:id/status", updateOrderStatus);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.delete("/orders/:id", deleteOrder);
+router.delete("/orders/:id", isValidObjectId('id'), validate, deleteOrder);
 
-// User Management Routes
+// User management Routes with validation
 /**
  * @swagger
  * /api/v1/admin/users:
@@ -783,7 +795,7 @@ router.delete("/orders/:id", deleteOrder);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get("/users", getAllUsers);
+router.get("/users", paginationRules, validate, getAllUsers);
 
 /**
  * @swagger
@@ -812,7 +824,15 @@ router.get("/users", getAllUsers);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get("/users/:id", getUserById);
+router.get("/users/:id", isValidObjectId('id'), validate, getUserById);
+
+// Role validation rules
+const roleValidation = [
+    body("role")
+        .isIn(["user", "admin"])
+        .withMessage("Role must be either 'user' or 'admin'"),
+    validate
+];
 
 /**
  * @swagger
@@ -852,7 +872,7 @@ router.get("/users/:id", getUserById);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.patch("/users/:id/role", updateUserRole);
+router.patch("/users/:id/role", [isValidObjectId('id'), ...roleValidation], updateUserRole);
 
 /**
  * @swagger
@@ -881,7 +901,7 @@ router.patch("/users/:id/role", updateUserRole);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.patch("/users/:id/toggle-active", toggleUserActiveStatus);
+router.patch("/users/:id/toggle-active", isValidObjectId('id'), validate, toggleUserActiveStatus);
 
 /**
  * @swagger
@@ -910,6 +930,21 @@ router.patch("/users/:id/toggle-active", toggleUserActiveStatus);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.delete("/users/:id", deleteUser);
+router.delete("/users/:id", isValidObjectId('id'), validate, deleteUser);
+
+// Debugging endpoint to verify JWT token
+router.get("/debug-token", verifyJWT, (req, res) => {
+    return res.status(200).json({
+        success: true,
+        message: "Token verification successful",
+        user: {
+            _id: req.user._id,
+            name: req.user.name,
+            email: req.user.email,
+            role: req.user.role
+        },
+        tokenData: req.tokenData
+    });
+});
 
 export default router; 

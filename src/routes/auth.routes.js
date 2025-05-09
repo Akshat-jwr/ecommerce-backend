@@ -9,6 +9,10 @@ import {
 } from "../controllers/auth.controller.js";
 import { verifyJWT, refreshAccessToken } from "../middlewares/auth.middleware.js";
 
+// Import validation middleware
+import { userValidationRules, validate } from "../middlewares/validator.middleware.js";
+import { body } from "express-validator";
+
 const router = Router();
 
 /**
@@ -143,6 +147,54 @@ const router = Router();
  *   description: API endpoints for user authentication
  */
 
+// Registration validation rules
+const registerValidation = [
+    userValidationRules.name,
+    userValidationRules.email,
+    userValidationRules.password,
+    userValidationRules.phone,
+    body("countryCode")
+        .optional()
+        .isString()
+        .withMessage("Country code must be a string"),
+    validate
+];
+
+// Login validation rules
+const loginValidation = [
+    body("email")
+        .trim()
+        .isEmail()
+        .withMessage("Please enter a valid email address"),
+    body("password")
+        .isString()
+        .notEmpty()
+        .withMessage("Password is required"),
+    validate
+];
+
+// Email verification validation rules
+const verifyEmailValidation = [
+    body("email")
+        .trim()
+        .isEmail()
+        .withMessage("Please enter a valid email address"),
+    body("otp")
+        .isString()
+        .isLength({ min: 6, max: 6 })
+        .withMessage("OTP must be 6 characters long"),
+    validate
+];
+
+// Resend OTP validation
+const resendOTPValidation = [
+    body("email")
+        .trim()
+        .isEmail()
+        .withMessage("Please enter a valid email address"),
+    validate
+];
+
 /**
  * @swagger
  * /api/v1/auth/register:
@@ -212,7 +264,7 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/register", registerUser);
+router.post("/register", registerValidation, registerUser);
 
 /**
  * @swagger
@@ -255,7 +307,7 @@ router.post("/register", registerUser);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/verify-email", verifyEmail);
+router.post("/verify-email", verifyEmailValidation, verifyEmail);
 
 /**
  * @swagger
@@ -294,7 +346,7 @@ router.post("/verify-email", verifyEmail);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/resend-otp", resendOTP);
+router.post("/resend-otp", resendOTPValidation, resendOTP);
 
 /**
  * @swagger
@@ -338,7 +390,7 @@ router.post("/resend-otp", resendOTP);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/login", loginUser);
+router.post("/login", loginValidation, loginUser);
 
 /**
  * @swagger
@@ -438,5 +490,22 @@ router.post("/refresh-token", refreshAccessToken);
  *               $ref: '#/components/schemas/Error'
  */
 router.post("/logout", verifyJWT, logoutUser);
+
+// Get current user info - useful for debugging
+router.get("/me", verifyJWT, (req, res) => {
+    return res.status(200).json({
+        success: true,
+        data: {
+            user: {
+                _id: req.user._id,
+                name: req.user.name,
+                email: req.user.email,
+                role: req.user.role,
+                isActive: req.user.isActive
+            }
+        },
+        message: "User fetched successfully"
+    });
+});
 
 export default router; 
