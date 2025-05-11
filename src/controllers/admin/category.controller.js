@@ -23,8 +23,8 @@ export const createCategory = asyncHandler(async (req, res) => {
         throw new ApiError(409, "Category with this name already exists");
     }
 
-    // If parentCategory is provided, validate it exists
-    if (parentCategory) {
+    // If parentCategory is provided and not empty, validate it exists
+    if (parentCategory && parentCategory !== '') {
         const parentExists = await Category.findById(parentCategory);
         if (!parentExists) {
             throw new ApiError(400, "Invalid parent category");
@@ -35,7 +35,7 @@ export const createCategory = asyncHandler(async (req, res) => {
     const category = await Category.create({
         name,
         description,
-        parentCategory: parentCategory || null
+        parentCategory: parentCategory && parentCategory !== '' ? parentCategory : null
     });
 
     return res
@@ -129,7 +129,7 @@ export const updateCategory = asyncHandler(async (req, res) => {
     }
     
     // If parentCategory is provided, validate it exists and is not the category itself
-    if (parentCategory) {
+    if (parentCategory && parentCategory !== '') {
         if (parentCategory === id) {
             throw new ApiError(400, "Category cannot be its own parent");
         }
@@ -155,7 +155,9 @@ export const updateCategory = asyncHandler(async (req, res) => {
         {
             name: name || category.name,
             description: description !== undefined ? description : category.description,
-            parentCategory: parentCategory !== undefined ? parentCategory : category.parentCategory
+            parentCategory: parentCategory !== undefined ? 
+                (parentCategory === '' || parentCategory === null ? null : parentCategory) : 
+                category.parentCategory
         },
         { new: true, runValidators: true }
     ).populate("parentCategory", "name");

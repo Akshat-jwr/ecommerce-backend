@@ -88,8 +88,17 @@ export const categoryValidationRules = [
         
     body("parentCategory")
         .optional()
-        .isMongoId()
-        .withMessage("Invalid parent category ID format")
+        .custom((value) => {
+            // Accept null, undefined, or empty string
+            if (value === null || value === undefined || value === '') {
+                return true;
+            }
+            // Otherwise validate it's a valid MongoDB ObjectId
+            if (!/^[0-9a-fA-F]{24}$/.test(value)) {
+                throw new Error("Invalid parent category ID format");
+            }
+            return true;
+        })
 ];
 
 // Order status validation rules
