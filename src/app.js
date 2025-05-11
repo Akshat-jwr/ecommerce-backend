@@ -32,7 +32,10 @@ const requiredEnvVars = [
     'REFRESH_TOKEN_SECRET',
     'ACCESS_TOKEN_EXPIRY',
     'REFRESH_TOKEN_EXPIRY',
-    'MONGODB_URI'
+    'MONGODB_URI',
+    'CLOUDINARY_CLOUD_NAME',
+    'CLOUDINARY_API_KEY',
+    'CLOUDINARY_API_SECRET'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);

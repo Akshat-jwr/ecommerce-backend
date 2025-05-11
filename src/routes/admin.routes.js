@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { verifyAdmin } from "../middlewares/admin.middleware.js";
+import { uploadProductImage } from "../middlewares/multer.middleware.js";
 
 // Import controllers
 import {
@@ -34,6 +35,13 @@ import {
     deleteUser
 } from "../controllers/admin/user.controller.js";
 
+// Import dashboard controllers
+import {
+    getDashboardStats,
+    getOrderStats,
+    getRevenueChartData
+} from "../controllers/admin/dashboard.controller.js";
+
 // Import validation middleware
 import { 
     productValidationRules, 
@@ -62,6 +70,19 @@ router.use(verifyJWT, verifyAdmin);
  * @swagger
  * components:
  *   schemas:
+ *     ProductImage:
+ *       type: object
+ *       properties:
+ *         url:
+ *           type: string
+ *           description: URL of the image on Cloudinary
+ *         publicId:
+ *           type: string
+ *           description: Public ID of the image on Cloudinary
+ *         isFeatured:
+ *           type: boolean
+ *           description: Whether this is the featured/main image
+ *           default: false
  *     Product:
  *       type: object
  *       required:
@@ -95,8 +116,8 @@ router.use(verifyJWT, verifyAdmin);
  *         images:
  *           type: array
  *           items:
- *             type: string
- *           description: Array of image URLs
+ *             $ref: '#/components/schemas/ProductImage'
+ *           description: Array of product images
  *         features:
  *           type: array
  *           items:
@@ -198,45 +219,103 @@ router.use(verifyJWT, verifyAdmin);
  *               type: string
  *             phone:
  *               type: string
- *         paymentInfo:
+ *         billingAddress:
  *           type: object
  *           properties:
- *             method:
+ *             fullName:
  *               type: string
- *             transactionId:
+ *             addressLine1:
  *               type: string
- *             status:
+ *             addressLine2:
  *               type: string
- *         subtotal:
+ *             city:
+ *               type: string
+ *             state:
+ *               type: string
+ *             postalCode:
+ *               type: string
+ *             country:
+ *               type: string
+ *             phone:
+ *               type: string
+ *         paymentMethod:
+ *           type: string
+ *           description: Payment method used
+ *         paymentStatus:
+ *           type: string
+ *           enum: [pending, completed, failed, refunded]
+ *           description: Status of payment
+ *         totalAmount:
  *           type: number
+ *           description: Total order amount
  *         tax:
  *           type: number
- *         shipping:
+ *           description: Tax amount
+ *         shippingCost:
  *           type: number
- *         discount:
- *           type: number
- *         total:
- *           type: number
+ *           description: Shipping cost
  *         status:
  *           $ref: '#/components/schemas/OrderStatus'
- *         notes:
- *           type: string
  *         trackingNumber:
  *           type: string
+ *           description: Shipping tracking number
+ *         notes:
+ *           type: string
+ *           description: Order notes
  *         createdAt:
  *           type: string
  *           format: date-time
  *         updatedAt:
  *           type: string
  *           format: date-time
- *     
+ *
  *     UserRole:
  *       type: string
  *       enum: [user, admin]
  *       default: user
+ *     
+ *     DashboardStats:
+ *       type: object
+ *       properties:
+ *         counts:
+ *           type: object
+ *           properties:
+ *             products:
+ *               type: number
+ *               description: Total number of products
+ *             orders:
+ *               type: number
+ *               description: Total number of orders
+ *             users:
+ *               type: number
+ *               description: Total number of users
+ *             categories:
+ *               type: number
+ *               description: Total number of categories
+ *         revenue:
+ *           type: object
+ *           properties:
+ *             totalRevenue:
+ *               type: number
+ *               description: Total revenue from all orders
+ *             averageOrderValue:
+ *               type: number
+ *               description: Average order value
+ *         recentActivity:
+ *           type: object
+ *           properties:
+ *             recentOrders:
+ *               type: array
+ *               items:
+ *                 type: object
+ *             lowStockProducts:
+ *               type: array
+ *               items:
+ *                 type: object
  */
 
-// Product Routes with validation
+// PRODUCT ROUTES
+
 /**
  * @swagger
  * /api/v1/admin/products:
@@ -248,9 +327,37 @@ router.use(verifyJWT, verifyAdmin);
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/Product'
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               discountPercentage:
+ *                 type: number
+ *               stock:
+ *                 type: number
+ *               category:
+ *                 type: string
+ *               features:
+ *                 type: string
+ *                 description: JSON string array of features
+ *               specifications:
+ *                 type: string
+ *                 description: JSON object of specifications
+ *               customizationOptions:
+ *                 type: string
+ *                 description: JSON array of customization options
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Product images to upload (max 5)
  *     responses:
  *       201:
  *         description: Product created successfully
@@ -261,7 +368,13 @@ router.use(verifyJWT, verifyAdmin);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.post("/products", productValidationRules, validate, createProduct);
+router.post(
+    "/products",
+    uploadProductImage.array("images", 5), // Handle up to 5 image uploads
+    productValidationRules,
+    validate,
+    createProduct
+);
 
 /**
  * @swagger
@@ -276,27 +389,27 @@ router.post("/products", productValidationRules, validate, createProduct);
  *         name: page
  *         schema:
  *           type: integer
- *           default: 1
  *         description: Page number
+ *         default: 1
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
- *           default: 10
  *         description: Number of items per page
+ *         default: 10
  *       - in: query
  *         name: sort
  *         schema:
  *           type: string
- *           default: createdAt
  *         description: Field to sort by
+ *         default: createdAt
  *       - in: query
  *         name: order
  *         schema:
  *           type: string
  *           enum: [asc, desc]
- *           default: desc
  *         description: Sort order
+ *         default: desc
  *       - in: query
  *         name: search
  *         schema:
@@ -315,7 +428,12 @@ router.post("/products", productValidationRules, validate, createProduct);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get("/products", paginationRules, validate, getAllProducts);
+router.get(
+    "/products",
+    paginationRules,
+    validate,
+    getAllProducts
+);
 
 /**
  * @swagger
@@ -337,14 +455,19 @@ router.get("/products", paginationRules, validate, getAllProducts);
  *         description: Product details
  *       400:
  *         description: Invalid ID
- *       404:
- *         description: Product not found
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden - Admin access required
+ *       404:
+ *         description: Product not found
  */
-router.get("/products/:id", isValidObjectId('id'), validate, getProductById);
+router.get(
+    "/products/:id",
+    isValidObjectId("id"),
+    validate,
+    getProductById
+);
 
 /**
  * @swagger
@@ -362,24 +485,64 @@ router.get("/products/:id", isValidObjectId('id'), validate, getProductById);
  *           type: string
  *         description: Product ID
  *     requestBody:
- *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/Product'
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               discountPercentage:
+ *                 type: number
+ *               stock:
+ *                 type: number
+ *               category:
+ *                 type: string
+ *               features:
+ *                 type: string
+ *                 description: JSON string array of features
+ *               specifications:
+ *                 type: string
+ *                 description: JSON object of specifications
+ *               customizationOptions:
+ *                 type: string
+ *                 description: JSON array of customization options
+ *               keepExistingImages:
+ *                 type: string
+ *                 enum: ['true', 'false']
+ *                 description: Whether to keep existing images or replace them all
+ *               imagesToRemove:
+ *                 type: string
+ *                 description: JSON array of image indices to remove
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: New product images to upload (max 5)
  *     responses:
  *       200:
  *         description: Product updated successfully
  *       400:
  *         description: Invalid input data
- *       404:
- *         description: Product not found
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden - Admin access required
+ *       404:
+ *         description: Product not found
  */
-router.put("/products/:id", [isValidObjectId('id'), ...productValidationRules], validate, updateProduct);
+router.put(
+    "/products/:id",
+    isValidObjectId("id"),
+    uploadProductImage.array("images", 5), // Handle up to 5 image uploads
+    validate,
+    updateProduct
+);
 
 /**
  * @swagger
@@ -401,16 +564,21 @@ router.put("/products/:id", [isValidObjectId('id'), ...productValidationRules], 
  *         description: Product deleted successfully
  *       400:
  *         description: Invalid ID
- *       404:
- *         description: Product not found
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden - Admin access required
+ *       404:
+ *         description: Product not found
  */
-router.delete("/products/:id", isValidObjectId('id'), validate, deleteProduct);
+router.delete(
+    "/products/:id",
+    isValidObjectId("id"),
+    validate,
+    deleteProduct
+);
 
-// Category Routes with validation
+// CATEGORY ROUTES
 /**
  * @swagger
  * /api/v1/admin/categories:
@@ -495,7 +663,7 @@ router.get("/categories", getAllCategories);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get("/categories/:id", isValidObjectId('id'), validate, getCategoryById);
+router.get("/categories/:id", isValidObjectId("id"), validate, getCategoryById);
 
 /**
  * @swagger
@@ -532,7 +700,7 @@ router.get("/categories/:id", isValidObjectId('id'), validate, getCategoryById);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.put("/categories/:id", [isValidObjectId('id'), ...categoryValidationRules], validate, updateCategory);
+router.put("/categories/:id", isValidObjectId("id"), categoryValidationRules, validate, updateCategory);
 
 /**
  * @swagger
@@ -561,9 +729,9 @@ router.put("/categories/:id", [isValidObjectId('id'), ...categoryValidationRules
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.delete("/categories/:id", isValidObjectId('id'), validate, deleteCategory);
+router.delete("/categories/:id", isValidObjectId("id"), validate, deleteCategory);
 
-// Order Routes with validation
+// ORDER ROUTES
 /**
  * @swagger
  * /api/v1/admin/orders:
@@ -662,7 +830,7 @@ router.get("/orders", paginationRules, validate, getAllOrders);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get("/orders/:id", isValidObjectId('id'), validate, getOrderById);
+router.get("/orders/:id", isValidObjectId("id"), validate, getOrderById);
 
 /**
  * @swagger
@@ -706,7 +874,7 @@ router.get("/orders/:id", isValidObjectId('id'), validate, getOrderById);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.patch("/orders/:id/status", [isValidObjectId('id'), ...orderStatusValidationRules], validate, updateOrderStatus);
+router.patch("/orders/:id/status", isValidObjectId("id"), orderStatusValidationRules, validate, updateOrderStatus);
 
 /**
  * @swagger
@@ -735,9 +903,9 @@ router.patch("/orders/:id/status", [isValidObjectId('id'), ...orderStatusValidat
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.delete("/orders/:id", isValidObjectId('id'), validate, deleteOrder);
+router.delete("/orders/:id", isValidObjectId("id"), validate, deleteOrder);
 
-// User management Routes with validation
+// USER ROUTES
 /**
  * @swagger
  * /api/v1/admin/users:
@@ -824,15 +992,36 @@ router.get("/users", paginationRules, validate, getAllUsers);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get("/users/:id", isValidObjectId('id'), validate, getUserById);
+router.get("/users/:id", isValidObjectId("id"), validate, getUserById);
 
-// Role validation rules
-const roleValidation = [
-    body("role")
-        .isIn(["user", "admin"])
-        .withMessage("Role must be either 'user' or 'admin'"),
-    validate
-];
+/**
+ * @swagger
+ * /api/v1/admin/users/{id}:
+ *   delete:
+ *     summary: Delete user by ID
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User deleted successfully
+ *       400:
+ *         description: Invalid ID or cannot delete your own account
+ *       404:
+ *         description: User not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.delete("/users/:id", isValidObjectId("id"), validate, deleteUser);
 
 /**
  * @swagger
@@ -872,7 +1061,7 @@ const roleValidation = [
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.patch("/users/:id/role", [isValidObjectId('id'), ...roleValidation], updateUserRole);
+router.patch("/users/:id/role", isValidObjectId("id"), body("role").isIn(["user", "admin"]), validate, updateUserRole);
 
 /**
  * @swagger
@@ -901,50 +1090,66 @@ router.patch("/users/:id/role", [isValidObjectId('id'), ...roleValidation], upda
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.patch("/users/:id/toggle-active", isValidObjectId('id'), validate, toggleUserActiveStatus);
+router.patch("/users/:id/toggle-active", isValidObjectId("id"), validate, toggleUserActiveStatus);
+
+// DASHBOARD ROUTES
 
 /**
  * @swagger
- * /api/v1/admin/users/{id}:
- *   delete:
- *     summary: Delete user by ID
+ * /api/v1/admin/dashboard/stats:
+ *   get:
+ *     summary: Get dashboard statistics
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
  *     responses:
  *       200:
- *         description: User deleted successfully
- *       400:
- *         description: Invalid ID or cannot delete your own account
- *       404:
- *         description: User not found
+ *         description: Dashboard statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DashboardStats'
  *       401:
  *         description: Unauthorized
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.delete("/users/:id", isValidObjectId('id'), validate, deleteUser);
+router.get("/dashboard/stats", getDashboardStats);
 
-// Debugging endpoint to verify JWT token
-router.get("/debug-token", verifyJWT, (req, res) => {
-    return res.status(200).json({
-        success: true,
-        message: "Token verification successful",
-        user: {
-            _id: req.user._id,
-            name: req.user.name,
-            email: req.user.email,
-            role: req.user.role
-        },
-        tokenData: req.tokenData
-    });
-});
+/**
+ * @swagger
+ * /api/v1/admin/dashboard/orders-stats:
+ *   get:
+ *     summary: Get order statistics by status
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Order statistics retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.get("/dashboard/orders-stats", getOrderStats);
+
+/**
+ * @swagger
+ * /api/v1/admin/dashboard/revenue-chart:
+ *   get:
+ *     summary: Get revenue data for chart (last 7 days)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Revenue chart data retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.get("/dashboard/revenue-chart", getRevenueChartData);
 
 export default router; 
