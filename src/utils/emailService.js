@@ -74,7 +74,7 @@ export const sendWelcomeEmail = async (email, name) => {
         const transporter = createTransporter();
         
         const mailOptions = {
-            from: `"Gifts E-commerce" <${process.env.EMAIL_USER}>`,
+            from: `"Om Creations" <${process.env.EMAIL_USER}>`,
             to: email,
             subject: 'Welcome to Om Creations!',
             html: `
