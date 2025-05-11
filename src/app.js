@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 import path from "path";
 import { fileURLToPath } from "url";
+import { scheduleDailyCleanup } from "./utils/cleanupTempFiles.js";
 
 // Import security middlewares
 import { 
@@ -104,6 +105,9 @@ app.use("/api/v1/admin", adminRoutes);
 // app.use("/api/v1/users", userRoutes);
 // app.use("/api/v1/products", productRoutes);
 // ...
+
+// Schedule daily cleanup of temporary files at 2 AM IST
+scheduleDailyCleanup();
 
 // 404 handler
 app.use("*", (req, res) => {

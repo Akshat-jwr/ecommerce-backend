@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { verifyAdmin } from "../middlewares/admin.middleware.js";
-import { uploadProductImage } from "../middlewares/multer.middleware.js";
+import { uploadProductImage, fileCleanupAfterResponse } from "../middlewares/multer.middleware.js";
 
 // Import controllers
 import {
@@ -370,6 +370,7 @@ router.use(verifyJWT, verifyAdmin);
  */
 router.post(
     "/products",
+    fileCleanupAfterResponse,
     uploadProductImage.array("images", 5), // Handle up to 5 image uploads
     productValidationRules,
     validate,
@@ -539,6 +540,7 @@ router.get(
 router.put(
     "/products/:id",
     isValidObjectId("id"),
+    fileCleanupAfterResponse,
     uploadProductImage.array("images", 5), // Handle up to 5 image uploads
     validate,
     updateProduct

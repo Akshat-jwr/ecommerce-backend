@@ -2,6 +2,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import { cleanupTempFiles } from "../utils/cloudinary.js";
 
 // Create __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -18,6 +19,28 @@ const ordersDir = path.join(uploadsDir, "orders");
         fs.mkdirSync(dir, { recursive: true });
     }
 });
+
+// Cleanup middleware to ensure files are deleted after request is processed
+export const fileCleanupAfterResponse = (req, res, next) => {
+    // Store original end method
+    const originalEnd = res.end;
+    
+    // Override end method
+    res.end = function() {
+        // Call the original end method
+        originalEnd.apply(res, arguments);
+        
+        // Clean up files
+        if (req.files) {
+            setTimeout(() => {
+                cleanupTempFiles(req.files);
+                console.log('🧹 Cleanup middleware executed - ensuring all temp files are deleted');
+            }, 1000); // Small delay to ensure everything is processed
+        }
+    };
+    
+    next();
+};
 
 // Storage for product images (to be later uploaded to Cloudinary)
 const productStorage = multer.diskStorage({

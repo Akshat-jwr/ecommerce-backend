@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
+import path from 'path';
 
 // Configuration
 cloudinary.config({ 
@@ -7,6 +8,24 @@ cloudinary.config({
     api_key: process.env.CLOUDINARY_API_KEY, 
     api_secret: process.env.CLOUDINARY_API_SECRET 
 });
+
+/**
+ * Safely delete a file from the filesystem
+ * @param {string} filePath - Path to the file to delete
+ * @returns {boolean} - Whether deletion was successful
+ */
+const safeDeleteFile = (filePath) => {
+    try {
+        if (filePath && fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log(`✅ Temporary file deleted: ${filePath}`);
+            return true;
+        }
+    } catch (error) {
+        console.error(`❌ Error deleting temporary file ${filePath}:`, error);
+    }
+    return false;
+};
 
 /**
  * Upload file to Cloudinary
@@ -18,6 +37,12 @@ export const uploadOnCloudinary = async (localFilePath, folder = "products") => 
     try {
         if (!localFilePath) return null;
         
+        // Verify file exists before attempting upload
+        if (!fs.existsSync(localFilePath)) {
+            console.error(`File not found at path: ${localFilePath}`);
+            return null;
+        }
+        
         // Upload the file on cloudinary
         const response = await cloudinary.uploader.upload(localFilePath, {
             resource_type: "auto",
@@ -25,19 +50,18 @@ export const uploadOnCloudinary = async (localFilePath, folder = "products") => 
         });
         
         // File has been uploaded successfully
-        // console.log("File uploaded on cloudinary:", response.url);
+        console.log(`File uploaded to Cloudinary: ${response.public_id} (${response.url})`);
         
         // Remove locally saved file
-        fs.unlinkSync(localFilePath);
+        safeDeleteFile(localFilePath);
         
         return response;
     } catch (error) {
-        // Remove locally saved file on upload failure
-        if (fs.existsSync(localFilePath)) {
-            fs.unlinkSync(localFilePath);
-        }
+        console.error(`Error uploading to Cloudinary (${localFilePath}):`, error);
         
-        console.error("Error uploading to cloudinary:", error);
+        // Remove locally saved file on upload failure
+        safeDeleteFile(localFilePath);
+        
         return null;
     }
 };
@@ -57,6 +81,23 @@ export const deleteFromCloudinary = async (publicId) => {
         console.error("Error deleting from cloudinary:", error);
         return null;
     }
+};
+
+/**
+ * Cleanup temporary upload files 
+ * @param {Array} files - Array of file objects from multer
+ */
+export const cleanupTempFiles = (files) => {
+    if (!files) return;
+    
+    // Handle both single file and array of files
+    const filesToClean = Array.isArray(files) ? files : [files];
+    
+    filesToClean.forEach(file => {
+        if (file && file.path) {
+            safeDeleteFile(file.path);
+        }
+    });
 };
 
 /**
