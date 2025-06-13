@@ -5,6 +5,7 @@ import { errorMiddleware } from "./middlewares/error.middleware.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import { scheduleDailyCleanup } from "./utils/cleanupTempFiles.js";
+import userRoutes from "./routes/user.routes.js";
 
 // Import security middlewares
 import { 
@@ -18,6 +19,7 @@ import {
 // Import routes
 import authRoutes from "./routes/auth.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import publicRoutes from "./routes/public.routes.js";
 
 // Import Swagger
 import { swaggerDocs } from "./utils/swagger.js";
@@ -59,22 +61,14 @@ app.use("/api/v1/auth", authLimiter);
 app.use("/api", apiLimiter);
 
 // Global middlewares
-const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || [];
-
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  maxAge: 86400, // Cache preflight requests for 1 day
+    origin: process.env.CORS_ORIGIN || '*',
+    credentials: true,
+    // Enhanced CORS security
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    maxAge: 86400, // Cache preflight requests for 1 day
 }));
-
 
 // Increase JSON body size limit slightly but still keep it restricted
 app.use(express.json({ limit: "16kb" }));
@@ -110,12 +104,10 @@ app.get("/", (req, res) => {
 // Mount routes
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/admin", adminRoutes);
-// app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/public", publicRoutes);
+app.use("/api/v1/user", userRoutes);
 // app.use("/api/v1/products", productRoutes);
 // ...
-
-// Schedule daily cleanup of temporary files at 2 AM IST
-scheduleDailyCleanup();
 
 // 404 handler
 app.use("*", (req, res) => {
