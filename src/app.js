@@ -6,6 +6,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { scheduleDailyCleanup } from "./utils/cleanupTempFiles.js";
 import userRoutes from "./routes/user.routes.js";
+import paymentRoutes from "./routes/payment.routes.js";
 
 // Import security middlewares
 import { 
@@ -106,6 +107,7 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/public", publicRoutes);
 app.use("/api/v1/user", userRoutes);
+app.use("/api/v1/payment", paymentRoutes);
 // app.use("/api/v1/products", productRoutes);
 // ...
 
