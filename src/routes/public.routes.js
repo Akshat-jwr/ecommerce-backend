@@ -14,7 +14,8 @@ import {
 } from "../controllers/public/category.controller.js";
 import {
   globalSearch,
-  getFilterOptions
+  getFilterOptions,
+  getSearchSuggestions // Import the new controller
 } from "../controllers/public/search.controller.js";
 import {
   paginationRules,
@@ -475,13 +476,35 @@ router.get("/categories/:id/products",
   getCategoryProducts
 );
 
-// SEARCH & FILTER ROUTES
+/**
+ * @swagger
+ * /api/v1/public/search/suggestions:
+ *   get:
+ *     summary: Get autocomplete search suggestions
+ *     tags: [Public Search]
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *           minLength: 1
+ *         description: Partial search query for suggestions
+ *     responses:
+ *       200:
+ *         description: Search suggestions retrieved successfully
+ */
+router.get("/search/suggestions",
+  query("q").notEmpty().withMessage("Search query 'q' is required.").trim().escape(),
+  validate,
+  getSearchSuggestions
+);
 
 /**
  * @swagger
  * /api/v1/public/search:
  *   get:
- *     summary: Global search across products and categories
+ *     summary: Global search across products and categories with NLP
  *     tags: [Public Search]
  *     parameters:
  *       - in: query
@@ -502,15 +525,16 @@ router.get("/categories/:id/products",
  *       200:
  *         description: Search results retrieved successfully
  */
-router.get("/search", 
+router.get("/search",
   query("q").notEmpty().trim().isLength({ min: 1, max: 100 })
     .withMessage("Search query is required and must be between 1-100 characters"),
   query("type").optional().isIn(["all", "products", "categories"])
     .withMessage("Type must be all, products, or categories"),
   validate,
   trackSearch,
-  globalSearch
+  globalSearch // This now points to the NLP-enhanced controller
 );
+
 
 /**
  * @swagger
@@ -527,17 +551,8 @@ router.get("/search",
  *     responses:
  *       200:
  *         description: Filter options retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/ProductFilters'
  */
-router.get("/filters", 
+router.get("/filters",
   query("category").optional().isMongoId().withMessage("Invalid category ID"),
   validate,
   getFilterOptions
