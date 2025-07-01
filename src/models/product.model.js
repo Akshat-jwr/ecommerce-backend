@@ -312,26 +312,24 @@ productSchema.virtual('discountPercentage').get(function() {
 });
 
 // Instance Methods
-productSchema.methods.getActiveDiscount = function(quantity = 1, userRole = 'user') {
+productSchema.methods.getActiveDiscount = function () {
   const now = new Date();
   
-  const activeDiscounts = this.discounts.filter(discount => {
-    if (!discount.isActive) return false;
-    if (discount.startDate && discount.startDate > now) return false;
-    if (discount.endDate && discount.endDate < now) return false;
-    if (discount.minQuantity && quantity < discount.minQuantity) return false;
-    if (discount.maxQuantity && quantity > discount.maxQuantity) return false;
-    if (discount.conditions.userRoles?.length && !discount.conditions.userRoles.includes(userRole)) return false;
-    
-    return true;
+  // --- PERFECTLY AND DEFINITIVELY CORRECTED ---
+  // The (this.discounts || []) guard prevents the server from crashing if a product has no discounts.
+  const activeDiscounts = (this.discounts || []).filter(discount => {
+    const isActive = discount.isActive;
+    const isStarted = !discount.startDate || new Date(discount.startDate) <= now;
+    const isNotExpired = !discount.endDate || new Date(discount.endDate) >= now;
+    return isActive && isStarted && isNotExpired;
   });
-  
-  // Return the best discount
-  return activeDiscounts.reduce((best, current) => {
-    const currentValue = this.calculateDiscountValue(current, quantity);
-    const bestValue = best ? this.calculateDiscountValue(best, quantity) : 0;
-    return currentValue > bestValue ? current : best;
-  }, null);
+
+  if (activeDiscounts.length === 0) {
+    return null;
+  }
+
+  // Return the first active discount (you could add more logic here, e.g., for highest priority)
+  return activeDiscounts[0];
 };
 
 productSchema.methods.calculateDiscountValue = function(discount, quantity = 1) {

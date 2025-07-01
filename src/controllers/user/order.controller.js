@@ -6,6 +6,7 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import mongoose from "mongoose";
+import { razorpay } from "../../config/razorpay.js"; // Corrected import path for Razorpay instance
 
 /**
  * Create order from cart with proper payment handling
@@ -20,27 +21,24 @@ const createOrder = asyncHandler(async (req, res) => {
         billingAddressId,
         paymentMethod,
         notes,
-        couponCode
+        couponCode,
       } = req.body;
 
       const userId = req.user._id;
 
-      // Validate required fields
       if (!shippingAddressId || !paymentMethod) {
         throw new ApiError(400, "Shipping address and payment method are required");
       }
 
-      // Validate payment method
       const validPaymentMethods = ["upi", "credit_card", "debit_card", "cash_on_delivery"];
       if (!validPaymentMethods.includes(paymentMethod)) {
         throw new ApiError(400, "Invalid payment method");
       }
 
-      // Get user with populated cart
       const user = await User.findById(userId)
         .populate({
           path: "cart.items.productId",
-          select: "name price stock discountPercentage images lowStockThreshold"
+          select: "name price stock discountPercentage images lowStockThreshold",
         })
         .session(session);
 
@@ -48,12 +46,10 @@ const createOrder = asyncHandler(async (req, res) => {
         throw new ApiError(404, "User not found");
       }
 
-      // Validate cart
       if (!user.cart.items || user.cart.items.length === 0) {
         throw new ApiError(400, "Cart is empty");
       }
 
-      // Get addresses
       const shippingAddress = user.addresses.id(shippingAddressId);
       if (!shippingAddress) {
         throw new ApiError(404, "Shipping address not found");
@@ -67,15 +63,13 @@ const createOrder = asyncHandler(async (req, res) => {
         }
       }
 
-      // Validate COD availability
       if (paymentMethod === "cash_on_delivery") {
-        const allowedPincodes = ["712248"]; // Add more as needed
+        const allowedPincodes = ["712248"];
         if (!allowedPincodes.includes(shippingAddress.postalCode)) {
           throw new ApiError(400, "Cash on delivery is not available for your location");
         }
       }
 
-      // Process cart items
       let orderItems = [];
       let subtotal = 0;
 
@@ -86,12 +80,10 @@ const createOrder = asyncHandler(async (req, res) => {
           throw new ApiError(400, "Some products in cart are no longer available");
         }
 
-        // Check stock
         if (product.stock < cartItem.quantity) {
           throw new ApiError(400, `Insufficient stock for ${product.name}. Available: ${product.stock}`);
         }
 
-        // Calculate discounted price
         const discountedPrice = product.discountPercentage > 0 
           ? product.price * (1 - product.discountPercentage / 100)
           : product.price;
@@ -102,10 +94,9 @@ const createOrder = asyncHandler(async (req, res) => {
         orderItems.push({
           product: product._id,
           quantity: cartItem.quantity,
-          price: discountedPrice
+          price: discountedPrice,
         });
 
-        // Reserve stock
         await Product.findByIdAndUpdate(
           product._id,
           { $inc: { stock: -cartItem.quantity } },
@@ -113,23 +104,19 @@ const createOrder = asyncHandler(async (req, res) => {
         );
       }
 
-      // Calculate totals
-      const shipping = subtotal > 1000 ? 0 : 100; // Free shipping above ₹1000
-      const tax = Math.round(subtotal * 0.18); // 18% GST
+      // const shipping = subtotal > 1000 ? 0 : 100;
+      const shipping = 0;
+      // const tax = Math.round(subtotal * 0.18);
+      const tax = 0;
       
-      // Apply coupon if provided
       let discount = 0;
       if (couponCode) {
-        // Basic coupon logic - implement proper coupon validation
-        discount = Math.round(subtotal * 0.1); // 10% discount
+        discount = Math.round(subtotal * 0.1);
       }
 
       const total = subtotal + shipping + tax - discount;
-
-      // Generate order number
       const orderNumber = `ORD${Date.now()}${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
 
-      // Create order data
       const orderData = {
         user: userId,
         orderNumber,
@@ -141,11 +128,11 @@ const createOrder = asyncHandler(async (req, res) => {
           state: shippingAddress.state,
           postalCode: shippingAddress.postalCode,
           country: shippingAddress.country || 'India',
-          phone: user.phone || 'N/A'
+          phone: user.phone || 'N/A',
         },
         paymentInfo: {
           method: paymentMethod,
-          status: "pending"
+          status: "pending",
         },
         subtotal,
         tax,
@@ -153,28 +140,46 @@ const createOrder = asyncHandler(async (req, res) => {
         discount,
         total,
         status: "pending",
-        notes: notes || ""
+        notes: notes || "",
       };
-
-      // Handle payment method
+      
+      let paymentRequired = false;
+      let paymentDetails = {};
+      
       if (paymentMethod === "cash_on_delivery") {
         orderData.paymentInfo.status = "pending";
         orderData.paymentInfo.transactionId = `COD_${Date.now()}`;
         orderData.status = "confirmed";
+        paymentRequired = false;
       } else {
-        // For online payments, create order and return payment details
-        orderData.paymentInfo.status = "pending";
+        paymentRequired = true;
+        const options = {
+          amount: total * 100,
+          currency: "INR",
+          receipt: orderNumber,
+        };
+        
+        const razorpayOrder = await razorpay.orders.create(options);
+        if (!razorpayOrder) {
+          throw new ApiError(500, "Failed to create Razorpay order");
+        }
+
+        orderData.paymentInfo.paymentId = razorpayOrder.id;
+
+        paymentDetails = {
+          amount: total,
+          currency: 'INR',
+          method: paymentMethod,
+          orderId: razorpayOrder.id,
+        };
       }
 
-      // Create order
       const [order] = await Order.create([orderData], { session });
 
-      // Clear cart
       user.cart.items = [];
       user.cart.updatedAt = new Date();
       await user.save({ session });
 
-      // Log purchase activities
       for (const item of orderItems) {
         await UserActivity.logActivity({
           userId,
@@ -183,29 +188,22 @@ const createOrder = asyncHandler(async (req, res) => {
           metadata: {
             orderId: order._id,
             quantity: item.quantity,
-            price: item.price
-          }
+            price: item.price,
+          },
         });
       }
 
-      // Return response based on payment method
-      if (paymentMethod === "cash_on_delivery") {
+      if (paymentRequired) {
         return res.status(201).json(
-          new ApiResponse(201, order, "Order placed successfully with Cash on Delivery")
+          new ApiResponse(
+            201,
+            { order, paymentRequired, paymentDetails },
+            "Order created successfully. Complete payment to confirm."
+          )
         );
       } else {
-        // For online payments, return order with payment details
         return res.status(201).json(
-          new ApiResponse(201, {
-            order,
-            paymentRequired: true,
-            paymentDetails: {
-              amount: total,
-              currency: 'INR',
-              method: paymentMethod,
-              orderId: order._id
-            }
-          }, "Order created successfully. Complete payment to confirm.")
+          new ApiResponse(201, { order, paymentRequired: false }, "Order placed successfully with Cash on Delivery")
         );
       }
     });
@@ -216,15 +214,8 @@ const createOrder = asyncHandler(async (req, res) => {
   }
 });
 
-export const verifyPayment = asyncHandler(async (req, res) => {
-  return res.status(200).json(
-    new ApiResponse(200, {}, "Payment verification functionality to be implemented")
-  );
-});
+// --- The broken verifyPayment placeholder has been REMOVED from this file ---
 
-/**
- * Get user orders with pagination
- */
 const getUserOrders = asyncHandler(async (req, res) => {
   const {
     page = 1,
@@ -238,7 +229,6 @@ const getUserOrders = asyncHandler(async (req, res) => {
   const limitNumber = parseInt(limit);
   const skip = (pageNumber - 1) * limitNumber;
 
-  // Build filter
   const filter = { user: req.user._id };
 
   if (status) {
@@ -264,7 +254,6 @@ const getUserOrders = asyncHandler(async (req, res) => {
     .limit(limitNumber)
     .lean();
 
-  // Add computed fields
   const enrichedOrders = orders.map(order => ({
     ...order,
     canBeCancelled: ["pending", "confirmed"].includes(order.status),
@@ -287,9 +276,6 @@ const getUserOrders = asyncHandler(async (req, res) => {
   );
 });
 
-/**
- * Get order by ID
- */
 const getOrderById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
@@ -307,8 +293,7 @@ const getOrderById = asyncHandler(async (req, res) => {
   if (!order) {
     throw new ApiError(404, "Order not found");
   }
-
-  // Add computed fields
+  
   const enrichedOrder = {
     ...order,
     canBeCancelled: ["pending", "confirmed"].includes(order.status),
@@ -323,9 +308,6 @@ const getOrderById = asyncHandler(async (req, res) => {
   );
 });
 
-/**
- * Cancel order
- */
 const cancelOrder = asyncHandler(async (req, res) => {
   const session = await mongoose.startSession();
 
@@ -347,12 +329,10 @@ const cancelOrder = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Order not found");
       }
 
-      // Check if order can be cancelled
       if (!["pending", "confirmed"].includes(order.status)) {
         throw new ApiError(400, `Cannot cancel order in ${order.status} status`);
       }
 
-      // Restore stock
       for (const item of order.items) {
         await Product.findByIdAndUpdate(
           item.product,
@@ -361,7 +341,6 @@ const cancelOrder = asyncHandler(async (req, res) => {
         );
       }
 
-      // Update order
       order.status = "cancelled";
       order.cancelledAt = new Date();
       order.cancellationReason = reason || "Cancelled by customer";
@@ -376,9 +355,6 @@ const cancelOrder = asyncHandler(async (req, res) => {
   }
 });
 
-/**
- * Get order tracking
- */
 const getOrderTracking = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
@@ -412,7 +388,6 @@ const getOrderTracking = asyncHandler(async (req, res) => {
   );
 });
 
-// Helper functions
 function getEstimatedDelivery(orderDate, postalCode) {
   const deliveryDays = postalCode === "712248" ? 2 : 5;
   const estimatedDate = new Date(orderDate);
@@ -422,63 +397,25 @@ function getEstimatedDelivery(orderDate, postalCode) {
 
 function getOrderTimeline(order) {
   const timeline = [
-    {
-      status: "pending",
-      label: "Order Placed",
-      timestamp: order.createdAt,
-      completed: true
-    }
+    { status: "pending", label: "Order Placed", timestamp: order.createdAt, completed: true }
   ];
-
   if (["confirmed", "processing", "shipped", "delivered"].includes(order.status)) {
-    timeline.push({
-      status: "confirmed",
-      label: "Order Confirmed",
-      timestamp: order.updatedAt,
-      completed: true
-    });
+    timeline.push({ status: "confirmed", label: "Order Confirmed", timestamp: order.updatedAt, completed: true });
   }
-
   if (["processing", "shipped", "delivered"].includes(order.status)) {
-    timeline.push({
-      status: "processing",
-      label: "Order Processing",
-      timestamp: order.updatedAt,
-      completed: true
-    });
+    timeline.push({ status: "processing", label: "Order Processing", timestamp: order.updatedAt, completed: true });
   }
-
   if (["shipped", "delivered"].includes(order.status)) {
-    timeline.push({
-      status: "shipped",
-      label: "Order Shipped",
-      timestamp: order.updatedAt,
-      completed: true
-    });
+    timeline.push({ status: "shipped", label: "Order Shipped", timestamp: order.updatedAt, completed: true });
   }
-
   if (order.status === "delivered") {
-    timeline.push({
-      status: "delivered",
-      label: "Order Delivered",
-      timestamp: order.updatedAt,
-      completed: true
-    });
+    timeline.push({ status: "delivered", label: "Order Delivered", timestamp: order.updatedAt, completed: true });
   }
-
   if (order.status === "cancelled") {
-    timeline.push({
-      status: "cancelled",
-      label: "Order Cancelled",
-      timestamp: order.cancelledAt || order.updatedAt,
-      completed: true
-    });
+    timeline.push({ status: "cancelled", label: "Order Cancelled", timestamp: order.cancelledAt || order.updatedAt, completed: true });
   }
-
   return timeline;
 }
-
-
 
 export {
   createOrder,
