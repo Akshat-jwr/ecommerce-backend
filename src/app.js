@@ -51,6 +51,9 @@ if (missingEnvVars.length > 0) {
 
 const app = express();
 
+// Trust proxy for correct client IP detection behind proxies like Render
+app.set('trust proxy', 1);
+
 // Apply security middlewares first
 app.use(securityHeaders);
 app.use(xssProtection);
@@ -61,9 +64,20 @@ app.use("/api/v1/auth", authLimiter);
 // General rate limiting for all other routes
 app.use("/api", apiLimiter);
 
+// Parse CORS origins from environment
+const corsOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()) : [];
+
 // Global middlewares
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || '*',
+    // Allow only whitelisted origins for credentials
+    origin: (incomingOrigin, callback) => {
+        // Allow non-browser or same-origin requests
+        if (!incomingOrigin) return callback(null, true);
+        if (corsOrigins.includes(incomingOrigin)) {
+            return callback(null, true);
+        }
+        return callback(new Error(`Origin ${incomingOrigin} not allowed by CORS`));
+    },
     credentials: true,
     // Enhanced CORS security
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
